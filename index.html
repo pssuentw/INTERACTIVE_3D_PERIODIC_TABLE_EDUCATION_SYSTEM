@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive 3D Periodic Table Education - Standalone</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;font-family:"Segoe UI",Arial,sans-serif;background:#06111f;color:#eaf8ff;}
+  body.day{background:#edf7ff;color:#10233a;}
+  body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 55% 20%,rgba(72,179,255,.18),transparent 28%),radial-gradient(circle at 10% 80%,rgba(131,93,255,.14),transparent 32%),linear-gradient(135deg,#06111f,#101937 55%,#050910);z-index:-5}
+  body.day::before{background:linear-gradient(135deg,#f5fbff,#d8efff)}
+  button,input,select{font:inherit}
+  button{cursor:pointer}
+  #app{height:100vh;display:grid;grid-template-columns:290px minmax(560px,1fr) 340px;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;padding:10px;}
+  header{grid-column:1/4;background:rgba(9,25,47,.86);border:1px solid rgba(109,203,255,.35);border-radius:18px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+  body.day header,.day .panel,.day .miniPanel{background:rgba(255,255,255,.88);color:#10233a;}
+  header h1{font-size:clamp(20px,2.1vw,34px);letter-spacing:.5px}
+  header p{font-size:13px;color:#9fc5e7;margin-top:4px}
+  body.day header p{color:#42617d}
+  .topActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .panel{background:rgba(7,21,40,.86);border:1px solid rgba(109,203,255,.28);border-radius:18px;padding:13px;box-shadow:0 16px 55px rgba(0,0,0,.38);overflow:auto;min-height:0;scrollbar-width:thin;}
+  .leftPanel{grid-column:1;grid-row:2/4}
+  .rightPanel{grid-column:3;grid-row:2/4}
+  .stageWrap{grid-column:2;grid-row:2;position:relative;min-height:0;border:1px solid rgba(109,203,255,.28);border-radius:20px;background:rgba(2,8,18,.70);overflow:hidden;box-shadow:inset 0 0 60px rgba(80,190,255,.08),0 18px 60px rgba(0,0,0,.40);}
+  body.day .stageWrap{background:rgba(255,255,255,.80)}
+  .status{grid-column:2;grid-row:3;background:rgba(7,21,40,.86);border:1px solid rgba(109,203,255,.28);border-radius:15px;padding:9px 12px;display:flex;gap:12px;align-items:center;justify-content:space-between;font-size:12px;color:#a8c9e8;overflow:visible;flex-wrap:wrap}
+  body.day .status{background:rgba(255,255,255,.88);color:#476783}
+  .status b{color:#6ed4ff}
+  .sideScrollWrap{display:flex;align-items:center;gap:7px;min-width:290px;flex:1;justify-content:flex-end}
+  .sideScrollWrap input[type="range"]{width:min(360px,34vw);padding:0;height:22px;accent-color:#66d8ff}
+  .sideScrollWrap button{padding:5px 9px;border-radius:9px}
+  h2{font-size:14px;color:#66d8ff;text-transform:uppercase;letter-spacing:1px;margin:6px 0 10px}
+  h3{font-size:12px;color:#ffd166;text-transform:uppercase;letter-spacing:1px;margin:15px 0 8px}
+  .btnGrid,.row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px}
+  button,.btn{background:linear-gradient(180deg,#18385a,#0c2138);color:#eaf8ff;border:1px solid rgba(109,203,255,.36);border-radius:11px;padding:8px 10px;font-size:12px;transition:.16s;box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 5px 16px rgba(0,0,0,.25)}
+  button:hover,.btn:hover{transform:translateY(-1px);filter:brightness(1.15)}
+  button.active{background:linear-gradient(180deg,#13a3e0,#09658f);border-color:#a7edff}
+  button.warn{background:linear-gradient(180deg,#916326,#503510);border-color:#ffcf66}
+  button.danger{background:linear-gradient(180deg,#8b2941,#511326);border-color:#ff7b98}
+  body.day button{color:#10233a;background:linear-gradient(180deg,#fff,#dcedff)}
+  label{display:block;font-size:12px;color:#a8c9e8;margin:8px 0 5px}
+  body.day label{color:#526c83}
+  input,select{width:100%;border:1px solid rgba(109,203,255,.28);border-radius:10px;background:rgba(2,10,22,.86);color:#eaf8ff;padding:9px;font-size:12px}
+  input[type="color"]{padding:2px;height:38px}
+  body.day input, body.day select{background:#fff;color:#10233a}
+  .small{font-size:12px;line-height:1.5;color:#a8c9e8}
+  body.day .small{color:#526c83}
+  .miniPanel{background:rgba(4,14,28,.74);border:1px solid rgba(109,203,255,.2);border-radius:14px;padding:10px;margin:9px 0;}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:11px}
+  .legend span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .dot{width:13px;height:13px;border-radius:4px;display:inline-block;border:1px solid rgba(255,255,255,.45)}
+  #stage3d{position:absolute;inset:0;perspective:1200px;overflow:hidden;}
+  #world{position:absolute;left:0;top:0;width:100%;height:100%;transform-style:preserve-3d;z-index:2;}
+  #wowLayer{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0;transition:opacity .65s ease;overflow:hidden;}
+  #wowLayer .deepGlow{position:absolute;left:50%;top:50%;width:min(78vw,760px);height:min(78vw,760px);transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(100,216,255,.22),rgba(132,97,255,.12) 38%,rgba(255,209,102,.07) 62%,transparent 72%);filter:blur(2px);animation:glowBreath 3.4s ease-in-out infinite;}
+  #wowLayer .orbitRing{position:absolute;left:50%;top:50%;width:min(72vw,700px);height:min(72vw,700px);transform:translate(-50%,-50%) rotateX(70deg);border-radius:50%;border:1px solid rgba(109,220,255,.34);box-shadow:0 0 28px rgba(109,220,255,.18),inset 0 0 28px rgba(109,220,255,.12);animation:ringSpin 10s linear infinite;}
+  #wowLayer .orbitRing.r2{width:min(54vw,530px);height:min(54vw,530px);animation-duration:7.5s;border-color:rgba(255,209,102,.35)}
+  #wowLayer .orbitRing.r3{width:min(86vw,850px);height:min(86vw,850px);animation-duration:13s;border-style:dashed;opacity:.7}
+  #wowLayer .helixBeam{position:absolute;left:50%;top:50%;width:min(44vw,390px);height:130%;transform:translate(-50%,-50%) rotate(15deg);opacity:0;background:repeating-linear-gradient(180deg,transparent 0 24px,rgba(102,216,255,.24) 25px 27px,transparent 28px 48px),linear-gradient(90deg,transparent,rgba(112,220,255,.22),transparent);filter:blur(.2px);animation:helixBeam 2.4s linear infinite;}
+  #wowLayer .spark{position:absolute;width:4px;height:4px;border-radius:50%;background:#b9f4ff;box-shadow:0 0 12px #6ee8ff;opacity:.65;animation:sparkMove 4s ease-in-out infinite;}
+  .stageWrap.sphereWow #wowLayer,.stageWrap.helixWow #wowLayer{opacity:1;}
+  .stageWrap.helixWow #wowLayer .helixBeam{opacity:1;}
+  .stageWrap.helixWow #wowLayer .orbitRing{border-radius:22px;transform:translate(-50%,-50%) rotateX(62deg) rotateZ(18deg);}
+  .stageWrap.sphereWow{box-shadow:inset 0 0 95px rgba(72,199,255,.18),0 18px 70px rgba(0,0,0,.46),0 0 36px rgba(102,216,255,.14);}
+  .stageWrap.helixWow{box-shadow:inset 0 0 95px rgba(155,126,255,.18),0 18px 70px rgba(0,0,0,.46),0 0 36px rgba(255,209,102,.12);}
+  .stageWrap.sphereWow .element,.stageWrap.helixWow .element{box-shadow:0 14px 34px rgba(0,0,0,.60),0 0 18px rgba(102,216,255,.28),inset 0 1px 0 rgba(255,255,255,.28);border-color:rgba(255,255,255,.52);}
+  .stageWrap.sphereWow .element{animation:floatCard 5s ease-in-out infinite, spherePulse 3.2s ease-in-out infinite;}
+  .stageWrap.helixWow .element{animation:floatCard 5s ease-in-out infinite, helixPulse 2.6s ease-in-out infinite;}
+  @keyframes glowBreath{0%,100%{transform:translate(-50%,-50%) scale(.92);opacity:.65}50%{transform:translate(-50%,-50%) scale(1.08);opacity:1}}
+  @keyframes ringSpin{from{transform:translate(-50%,-50%) rotateX(70deg) rotateZ(0)}to{transform:translate(-50%,-50%) rotateX(70deg) rotateZ(360deg)}}
+  @keyframes helixBeam{from{background-position:0 0,0 0}to{background-position:0 96px,0 0}}
+  @keyframes sparkMove{0%,100%{transform:translateY(0) scale(.8);opacity:.22}50%{transform:translateY(-22px) scale(1.25);opacity:.9}}
+  @keyframes spherePulse{0%,100%{filter:brightness(1.02) saturate(1.04)}50%{filter:brightness(1.20) saturate(1.22)}}
+  @keyframes helixPulse{0%,100%{filter:brightness(1.03) saturate(1.06)}50%{filter:brightness(1.16) saturate(1.28)}}
+  .wowCaption{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:5;pointer-events:none;background:rgba(2,12,24,.68);border:1px solid rgba(109,203,255,.32);border-radius:999px;padding:9px 16px;font-size:12px;color:#dff7ff;letter-spacing:.3px;backdrop-filter:blur(8px);opacity:0;transition:opacity .35s ease;}
+  .stageWrap.sphereWow .wowCaption,.stageWrap.helixWow .wowCaption{opacity:1;}
+  .element{position:absolute;width:118px;height:104px;border-radius:15px;border:1px solid rgba(255,255,255,.32);box-shadow:0 9px 24px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.22);padding:8px 8px 7px;color:#fff;text-align:center;user-select:none;transform-origin:center center;transition:box-shadow .2s,opacity .2s,filter .2s,border .2s,background .2s;border-bottom-width:5px;animation:floatCard 5s ease-in-out infinite;display:grid;grid-template-rows:15px 36px minmax(28px,1fr) 12px;align-items:center;overflow:hidden;will-change:transform,filter;}
+  .element:hover{box-shadow:0 18px 38px rgba(0,0,0,.70),0 0 26px rgba(103,211,255,.78);z-index:9999!important;filter:brightness(1.22);border-color:#fff}
+  .element.selected{outline:3px solid #ffd166;box-shadow:0 0 0 5px rgba(255,209,102,.25),0 0 30px rgba(255,209,102,.82)}
+  .element.dim{opacity:.16;filter:grayscale(.9)}
+  .num{font-size:13px;text-align:left;opacity:.96;line-height:1;font-weight:800;letter-spacing:.1px}
+  .sym{font-size:34px;font-weight:950;line-height:.95;text-shadow:0 2px 7px #000a;letter-spacing:.2px;white-space:nowrap}
+  .name{font-size:12px;font-weight:850;line-height:1.06;white-space:normal;overflow:hidden;text-overflow:clip;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:normal;overflow-wrap:anywhere;hyphens:auto;padding:0 1px;text-shadow:0 1px 4px #0008}
+  .element.longName .name{font-size:11px;line-height:1.03;letter-spacing:-.1px}
+  .element.veryLongName .name{font-size:10px;line-height:1.02;letter-spacing:-.25px;-webkit-line-clamp:3}
+  .mass{font-size:10px;opacity:.9;line-height:1;font-weight:700;letter-spacing:.1px}
+  @keyframes floatCard{0%,100%{filter:brightness(1)}50%{filter:brightness(1.09)}}
+  /* Original category class names are kept so the colour system stays consistent with the source project. */
+  .alkali{background:linear-gradient(145deg,#ff5b5f,#b81e38)}
+  .alkaline{background:linear-gradient(145deg,#ff9f43,#b05a0e)}
+  .transition{background:linear-gradient(145deg,#4d7cff,#2443aa)}
+  .post{background:linear-gradient(145deg,#738fa4,#3b5b72)}
+  .metalloid{background:linear-gradient(145deg,#33c487,#137657)}
+  .nonmetal{background:linear-gradient(145deg,#37b35f,#16733b)}
+  .halogen{background:linear-gradient(145deg,#b14ce6,#6b218f)}
+  .noble{background:linear-gradient(145deg,#25c8ea,#117193)}
+  .lanthanide{background:linear-gradient(145deg,#df9631,#915713)}
+  .actinide{background:linear-gradient(145deg,#d764a8,#8d2366)}
+  /* Optional readable colour versions. Default keeps the original category colour family. */
+  body.theme-soft .alkali{background:linear-gradient(145deg,#ff8b8f,#c74758)}
+  body.theme-soft .alkaline{background:linear-gradient(145deg,#ffc16e,#c77b26)}
+  body.theme-soft .transition{background:linear-gradient(145deg,#7798ff,#405ec2)}
+  body.theme-soft .post{background:linear-gradient(145deg,#9fb0bd,#58758a)}
+  body.theme-soft .metalloid{background:linear-gradient(145deg,#65d8aa,#22936d)}
+  body.theme-soft .nonmetal{background:linear-gradient(145deg,#68cc84,#23874c)}
+  body.theme-soft .halogen{background:linear-gradient(145deg,#cc7df0,#8132aa)}
+  body.theme-soft .noble{background:linear-gradient(145deg,#62d8f0,#2184a4)}
+  body.theme-soft .lanthanide{background:linear-gradient(145deg,#efb463,#aa6b24)}
+  body.theme-soft .actinide{background:linear-gradient(145deg,#e985bf,#a33b7a)}
+  body.theme-contrast .element{border-color:rgba(255,255,255,.72);box-shadow:0 11px 28px rgba(0,0,0,.62),inset 0 0 0 2px rgba(255,255,255,.18)}
+  body.theme-contrast .name,body.theme-contrast .sym,body.theme-contrast .num,body.theme-contrast .mass{text-shadow:0 2px 5px #000,0 0 2px #000}
+  body.theme-flat .alkali{background:#c6283c} body.theme-flat .alkaline{background:#c56b13} body.theme-flat .transition{background:#365bd6} body.theme-flat .post{background:#56768d} body.theme-flat .metalloid{background:#16865f} body.theme-flat .nonmetal{background:#1d8348} body.theme-flat .halogen{background:#8e35b5} body.theme-flat .noble{background:#168dae} body.theme-flat .lanthanide{background:#a7671d} body.theme-flat .actinide{background:#a72f78}
+  body.theme-bigtext .element{width:126px;height:112px;grid-template-rows:16px 38px minmax(32px,1fr) 13px}
+  body.theme-bigtext .sym{font-size:36px}.theme-bigtext .name{font-size:13px}.theme-bigtext .longName .name{font-size:11.7px}.theme-bigtext .veryLongName .name{font-size:10.7px}
+
+  .stageHint{position:absolute;left:14px;top:14px;right:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none;z-index:4}
+  .pill{background:rgba(3,12,25,.72);border:1px solid rgba(109,203,255,.3);border-radius:999px;padding:8px 11px;font-size:12px;color:#b7d7ef;backdrop-filter:blur(6px)}
+  .stageHint button{pointer-events:auto}
+  #labCanvas{width:100%;height:220px;border-radius:14px;background:radial-gradient(circle at 50% 10%,#18385d,#050b14 70%);border:1px solid rgba(109,203,255,.28);display:block;}
+  .preview{text-align:center}
+  .preview .big{font-size:60px;font-weight:900;color:#66d8ff;text-shadow:0 0 24px rgba(102,216,255,.38)}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px;text-align:left}
+  .facts div{border-bottom:1px dashed rgba(255,255,255,.18);padding:5px 0;font-size:12px}
+  .alert{display:none;background:rgba(170,25,50,.78);border:1px solid #ff6f8e;color:#ffeaf0;border-radius:12px;padding:9px;font-weight:700;font-size:12px;margin-top:8px}
+  .alert.show{display:block;animation:pulse .7s alternate infinite}
+  @keyframes pulse{to{box-shadow:0 0 22px rgba(255,82,110,.75)}}
+  .modal{position:fixed;inset:0;background:rgba(2,7,15,.94);z-index:80;display:none;padding:18px;overflow:auto;}
+  .modal.active{display:block}
+  .modalShell{max-width:1280px;margin:0 auto;background:linear-gradient(145deg,#07172a,#0d1230);border:1px solid rgba(109,203,255,.35);border-radius:24px;overflow:hidden;box-shadow:0 28px 90px rgba(0,0,0,.7);}
+  body.day .modalShell{background:linear-gradient(145deg,#ffffff,#eaf6ff)}
+  .modalHeader{padding:16px 18px;border-bottom:1px solid rgba(109,203,255,.25);display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .modalHeader h2{font-size:clamp(22px,3.2vw,44px);margin:0;text-transform:none;color:#eaf8ff;letter-spacing:0}
+  body.day .modalHeader h2{color:#10233a}
+  .modalBody{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:18px}
+  .atomCard,.detailBox{background:rgba(4,14,28,.74);border:1px solid rgba(109,203,255,.22);border-radius:18px;padding:15px;line-height:1.6}
+  body.day .atomCard, body.day .detailBox{background:rgba(255,255,255,.88)}
+  .atomViz{height:245px;position:relative;display:grid;place-items:center;transform-style:preserve-3d}
+  .nucleus{width:110px;height:110px;border-radius:50%;background:radial-gradient(circle at 30% 25%,#fff,#66d8ff 25%,#6b5cff 70%);display:grid;place-items:center;font-size:42px;font-weight:900;color:#07111f;box-shadow:0 0 38px rgba(102,216,255,.75)}
+  .orbit{position:absolute;width:230px;height:82px;border:1px solid rgba(102,216,255,.85);border-radius:50%;animation:orbitSpin 4s linear infinite;transform-style:preserve-3d}
+  .orbit.two{transform:rotate(60deg);animation-duration:5.4s}.orbit.three{transform:rotate(-60deg);animation-duration:6.4s}
+  .electron{width:12px;height:12px;border-radius:50%;background:#ffd166;box-shadow:0 0 18px #ffd166;position:absolute;left:0;top:50%}
+  @keyframes orbitSpin{to{rotate:360deg}}
+  .detailGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .detailBox h3{margin:0 0 7px;color:#66d8ff;font-size:15px;text-transform:none;letter-spacing:0}
+  .quizChoices{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}
+  .quizChoice.correct{background:#1e753c!important;border-color:#6bef91}.quizChoice.wrong{background:#84243d!important;border-color:#ff6f8e}
+  .floatingButtons{position:fixed;right:14px;bottom:14px;z-index:25;display:flex;flex-direction:column;gap:7px}
+  .hidden{display:none!important}
+
+  :root{--cardOpacity:.98;--cardTextScale:1;}
+  .element{opacity:var(--cardOpacity,.98);}
+  .glassCards .element{backdrop-filter:blur(8px) saturate(1.35);border-color:rgba(255,255,255,.62);box-shadow:0 10px 34px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.38)!important;}
+  .element.colorPulse{animation:floatCard 5s ease-in-out infinite, colourPulse 2.2s ease-in-out infinite;}
+  @keyframes colourPulse{50%{filter:hue-rotate(18deg) brightness(1.18)}}
+  .gameGrid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;padding:18px;}
+  .gameBox{background:rgba(4,14,28,.74);border:1px solid rgba(109,203,255,.22);border-radius:18px;padding:15px;line-height:1.6;min-height:160px;}
+  body.day .gameBox{background:rgba(255,255,255,.88)}
+  .flashCard{min-height:150px;border-radius:18px;border:1px solid rgba(255,255,255,.18);background:linear-gradient(145deg,rgba(18,60,96,.9),rgba(12,22,52,.9));display:flex;align-items:center;justify-content:center;text-align:center;padding:18px;font-size:24px;font-weight:800;color:#fff;text-shadow:0 2px 14px #000;}
+  .gameInputRow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px;}
+  .mixRow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0;}
+  .resultBox{margin-top:10px;border:1px dashed rgba(109,203,255,.28);border-radius:14px;padding:12px;background:rgba(0,0,0,.18);font-size:13px;}
+  .chatBox{height:255px;overflow:auto;border:1px solid rgba(109,203,255,.22);border-radius:14px;padding:10px;background:rgba(0,0,0,.18);display:flex;flex-direction:column;gap:8px;}
+  .bubble{max-width:92%;padding:9px 11px;border-radius:13px;font-size:12px;line-height:1.45;}
+  .bubble.user{align-self:flex-end;background:#0d6f9f;color:white}.bubble.bot{align-self:flex-start;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.12)}
+  .styleControls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.styleControls .wide{grid-column:1/3}
+  .readableNote{border-left:3px solid #66d8ff;padding-left:9px;margin-top:8px}
+  @media(max-width:1000px){.gameGrid{grid-template-columns:1fr}.mixRow{grid-template-columns:1fr}.gameInputRow{grid-template-columns:1fr}.styleControls{grid-template-columns:1fr}.styleControls .wide{grid-column:auto}}
+
+
+  .helpList{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:14px;margin-top:10px}
+  .helpCard{background:rgba(4,14,28,.74);border:1px solid rgba(109,203,255,.22);border-radius:16px;padding:14px;line-height:1.55;font-size:13px}
+  body.day .helpCard{background:rgba(255,255,255,.88)}
+  .helpCard h3{margin:0 0 7px;color:#66d8ff;font-size:15px;text-transform:none;letter-spacing:0}
+  .keyTag{display:inline-block;min-width:28px;text-align:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:7px;padding:2px 6px;margin:2px;color:#fff;font-weight:800}
+  body.day .keyTag{background:#eaf4ff;color:#10233a;border-color:#b8d8f2}
+  @media(max-width:760px){.helpList{grid-template-columns:1fr}}
+
+  @media(max-width:1100px){#app{grid-template-columns:250px 1fr;grid-template-rows:auto minmax(0,1fr) 330px auto}.rightPanel{grid-column:1/3;grid-row:3}.leftPanel{grid-column:1;grid-row:2}.stageWrap{grid-column:2;grid-row:2}.status{grid-column:1/3;grid-row:4}.modalBody{grid-template-columns:1fr}}
+  @media(max-width:760px){body{overflow:auto}#app{height:auto;min-height:100vh;grid-template-columns:1fr;grid-template-rows:auto 360px 70vh 420px auto}header,.leftPanel,.stageWrap,.rightPanel,.status{grid-column:1;grid-row:auto}header{flex-direction:column;align-items:flex-start}.modal{padding:8px}.modalBody{padding:10px}.detailGrid,.quizChoices{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <h1>Interactive 3D Periodic Table Education</h1>
+      <p>Standalone group project: original Table / Sphere / Helix / Grid layouts with readable cards, voice lessons, quiz, game, chatbot, and interactive 3D objects.</p>
+    </div>
+    <div class="topActions">
+      <button id="voiceIntroBtn">Voice Intro</button>
+      <button id="stopVoiceBtn" class="danger">Stop Voice</button>
+      <button id="openQuizBtn" class="warn">Open Quiz</button><button id="openGameBtn">Game + Chatbot</button><button id="toggleHelpBtn">Help</button>
+    </div>
+  </header>
+
+  <aside class="panel leftPanel" id="leftPanel">
+    <h2>Periodic Table Controls</h2>
+    <label>Search element</label>
+    <input id="searchInput" placeholder="Hydrogen, H, Oxygen, Fe..." />
+    <label>Filter category</label>
+    <select id="categorySelect">
+      <option value="all">All categories</option>
+      <option value="alkali metal">Alkali metal</option><option value="alkaline earth metal">Alkaline earth metal</option>
+      <option value="transition metal">Transition metal</option><option value="post-transition metal">Post-transition metal</option>
+      <option value="metalloid">Metalloid</option><option value="nonmetal">Nonmetal</option>
+      <option value="halogen">Halogen</option><option value="noble gas">Noble gas</option>
+      <option value="lanthanide">Lanthanide</option><option value="actinide">Actinide</option>
+    </select>
+    <h3>Original Layouts</h3>
+    <div class="btnGrid">
+      <button data-layout="table" class="active">Table</button>
+      <button data-layout="sphere">Sphere</button>
+      <button data-layout="helix">Helix</button>
+      <button data-layout="grid">Grid</button>
+    </div>
+    <h3>Table Colour + Transparency</h3>
+    <div class="styleControls">
+      <label>Transparency <input id="tableOpacitySlider" type="range" min="0.35" max="1" step="0.01" value="0.98" /></label>
+      <label>Card colour <input id="tableColorPicker" type="color" value="#45d5ff" /></label>
+      <label class="wide">Colour mode
+        <select id="tableColorMode">
+          <option value="original">Original category colours</option>
+          <option value="glass">Transparent glass colours</option>
+          <option value="customAll">Change all cards colour</option>
+          <option value="selectedOnly">Change selected element only</option>
+          <option value="pulse">Animated colour effect</option>
+        </select>
+      </label>
+      <label class="wide">Readable colour version
+        <select id="tableThemeMode">
+          <option value="default">Original design</option>
+          <option value="soft">Soft original colours</option>
+          <option value="contrast">High contrast original colours</option>
+          <option value="flat">Flat original colours</option>
+          <option value="bigtext">Bigger text version</option>
+        </select>
+      </label>
+      <button id="transparentBtn">Transparent Table</button>
+      <button id="originalColourBtn">Original Colours</button>
+    </div>
+    <div class="miniPanel small readableNote">The original category colours remain as default. Use Readable colour version only when you want softer colour, stronger contrast, flat colour, or bigger text.</div>
+    <h3>Camera Movement</h3>
+    <div class="btnGrid">
+      <button id="moveUpBtn">Move Up</button><button id="moveDownBtn">Move Down</button>
+      <button id="moveLeftBtn">Move Left</button><button id="moveRightBtn">Move Right</button>
+      <button id="zoomInBtn">Zoom +</button><button id="zoomOutBtn">Zoom −</button>
+      <button id="resetBtn">Reset View</button>
+    </div>
+    <label>Zoom</label><input id="zoomSlider" type="range" min="0.28" max="2.2" step="0.01" value="0.62" />
+    <label>Table rotation</label><input id="rotateSlider" type="range" min="-3.14" max="3.14" step="0.01" value="0" />
+    <h3>Screen Scroll</h3>
+    <div class="btnGrid">
+      <button id="scrollDownPanelBtn">Scroll Buttons Down</button>
+      <button id="scrollTopPanelBtn">Scroll Buttons Top</button>
+    </div>
+    <div class="miniPanel small">Keyboard: <b>W/A/S/D</b> moves the periodic-table camera. Use the bottom Side Scroll bar to view left/right when the bigger readable element cards exceed the screen. Mouse drag rotates; mouse wheel zooms.</div>
+    <h3>Category Colour Legend</h3>
+    <div class="legend" id="legend"></div>
+  </aside>
+
+  <main class="stageWrap" id="stageWrap">
+    <div class="stageHint">
+      <div class="pill" id="layoutStatus">Layout: Table</div>
+      <button id="openSelectedBtn">Open Selected Detail</button>
+    </div>
+    <div id="stage3d"><div id="wowLayer"><div class="deepGlow"></div><div class="orbitRing r1"></div><div class="orbitRing r2"></div><div class="orbitRing r3"></div><div class="helixBeam"></div></div><div id="world"></div><div id="wowCaption" class="wowCaption">Cinematic 3D layout active</div></div>
+  </main>
+
+  <aside class="panel rightPanel" id="rightPanel">
+    <h2>Element Detail Preview</h2>
+    <div class="miniPanel preview" id="preview">
+      <div class="big">?</div>
+      <b>Select one element</b>
+      <p class="small">Click any element card. A separate GUI page will explain the element, importance, uses, discovery, voice explanation, and quiz.</p>
+    </div>
+
+    <h2>Game + Chatbot</h2>
+    <div class="miniPanel small">
+      <b>Flashcard typing game:</b> answer by keyboard and press Enter.<br>
+      <b>Mixing activity:</b> choose two elements and see possible result.<br>
+      <b>Chatbot:</b> ask about an element, use, group, period, discovery, or mixing.
+      <div class="btnGrid" style="margin-top:8px"><button id="openGameSideBtn">Open Game Page</button></div>
+    </div>
+
+    <h2>Interactive Object Lab</h2>
+    <canvas id="labCanvas"></canvas>
+    <div id="labStatus" class="small">Animation is running automatically.</div>
+    <div id="collisionAlert" class="alert">Collision warning: two moving objects are too close.</div>
+    <h3>Direct Interaction</h3>
+    <div class="btnGrid">
+      <button data-shape="all" class="active">All</button><button data-shape="cube">Cube</button><button data-shape="sphere">Sphere</button>
+      <button data-shape="cylinder">Cylinder</button><button data-shape="cone">Cone</button><button data-shape="torus">Torus</button>
+      <button data-shape="plane">Plane</button><button data-shape="pyramid">Pyramid</button>
+    </div>
+    <div class="btnGrid">
+      <button id="rotateModeBtn" class="active">Rotation</button><button id="scaleModeBtn">Scaling</button><button id="translateModeBtn">Translation</button>
+      <button id="lightingBtn">Lighting ON</button><button id="shadowBtn">Shadow ON</button><button id="collisionBtn">Collision ON</button>
+      <button id="pauseLabBtn">Pause</button>
+    </div>
+    <label>Change object colour</label><input id="shapeColor" type="color" value="#45d5ff" />
+    <label>Shading</label><select id="shadingSelect"><option value="phong">Phong highlight</option><option value="lambert">Lambert matte</option><option value="toon">Toon</option><option value="normal">Normal colour</option><option value="wire">Wireframe style</option></select>
+    <label>Camera</label><select id="cameraSelect"><option value="front">Front</option><option value="top">Top</option><option value="side">Side</option><option value="orbit">Auto orbit</option></select>
+    <label>Animation speed</label><input id="speedSlider" type="range" min="0.2" max="3" step="0.1" value="1" />
+  </aside>
+
+  <footer class="status">
+    <span>Selected: <b id="selectedStatus">None</b></span>
+    <span>Visible: <b id="visibleCount">118</b></span>
+    <span>Table: <b id="tableStatus">Animation active</b></span>
+    <span>Object Lab: <b id="labRunStatus">Running</b></span>
+    <span class="sideScrollWrap">Side Scroll: <button id="sideLeftBtn">←</button><input id="sideScrollSlider" type="range" min="-1700" max="1700" step="10" value="0" aria-label="Side scroll periodic table"><button id="sideRightBtn">→</button></span>
+  </footer>
+</div>
+
+<div class="floatingButtons">
+  <button id="floatDownBtn">↓ Scroll Controls</button>
+  <button id="floatTopBtn">↑ Top</button>
+  <button id="floatHelpBtn">? Help</button>
+</div>
+
+
+<section class="modal" id="helpModal">
+  <div class="modalShell">
+    <div class="modalHeader">
+      <div><h2>Help Display</h2><p class="small">Turn this help display on/off anytime. Press <span class="keyTag">H</span> or click Help.</p></div>
+      <div class="topActions"><button id="closeHelpBtn">Close Help</button></div>
+    </div>
+    <div class="gameGrid">
+      <div class="helpCard">
+        <h3>Periodic Table Navigation</h3>
+        <p>Use <b>Table, Sphere, Helix, and Grid</b> to change the 3D layout. Drag the table with the mouse to rotate it, use the mouse wheel to zoom, and use the side-scroll bar to move across the wider readable table.</p>
+      </div>
+      <div class="helpCard">
+        <h3>Keyboard Controls</h3>
+        <p><span class="keyTag">W</span> move up, <span class="keyTag">A</span> move left, <span class="keyTag">S</span> move down, <span class="keyTag">D</span> move right. Use arrow keys for the 3D object lab camera. <span class="keyTag">Esc</span> closes open pages and stops voice.</p>
+      </div>
+      <div class="helpCard">
+        <h3>Element Learning Page</h3>
+        <p>Click any element box to open its detail page. It explains the element, its importance, real-life uses, discovery information, quiz question, and voice explanation.</p>
+      </div>
+      <div class="helpCard">
+        <h3>Colour and Transparency</h3>
+        <p>Use the left panel to keep original category colours, choose readable colour versions, make the table transparent, apply glass mode, or change selected/all element colours.</p>
+      </div>
+      <div class="helpCard">
+        <h3>Game + Chatbot</h3>
+        <p>Open the Game + Chatbot page for flashcard typing, element mixing, and chatbot questions. In flashcard mode, type the answer and press <span class="keyTag">Enter</span>.</p>
+      </div>
+      <div class="helpCard">
+        <h3>3D Object Lab</h3>
+        <p>Interact directly with cube, sphere, cylinder, cone, torus, plane, and pyramid. Change lighting, shadow, colour, shading, rotation, scaling, translation, speed, and camera view.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="modal" id="detailModal">
+  <div class="modalShell">
+    <div class="modalHeader">
+      <div><h2 id="detailTitle">Element</h2><p id="detailSub" class="small"></p></div>
+      <div class="topActions"><button id="speakDetailBtn">Voice Explanation</button><button id="stopVoiceDetailBtn" class="danger">Stop</button><button id="closeDetailBtn">Back to Table</button></div>
+    </div>
+    <div class="modalBody">
+      <div class="atomCard">
+        <div class="atomViz"><div class="orbit"><span class="electron"></span></div><div class="orbit two"><span class="electron"></span></div><div class="orbit three"><span class="electron"></span></div><div class="nucleus" id="atomSymbol">H</div></div>
+        <div class="facts" id="elementFacts"></div>
+      </div>
+      <div>
+        <div class="detailGrid">
+          <div class="detailBox"><h3>What is this element?</h3><p id="whatText"></p></div>
+          <div class="detailBox"><h3>Why is it important?</h3><p id="importantText"></p></div>
+          <div class="detailBox"><h3>Real-life uses</h3><p id="usesText"></p></div>
+          <div class="detailBox"><h3>Who discovered it?</h3><p id="discoverText"></p></div>
+        </div>
+        <div class="detailBox" style="margin-top:14px"><h3>Element Quiz</h3><p id="elementQuizQuestion"></p><div class="quizChoices" id="elementQuizChoices"></div><p id="elementQuizFeedback" class="small"></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="modal" id="gameModal">
+  <div class="modalShell">
+    <div class="modalHeader">
+      <div><h2>3D Element Game + Chatbot</h2><p class="small">Flashcard answer typing, element mixing, voice explanation, and simple chemistry chatbot.</p></div>
+      <div class="topActions"><button id="speakGameBtn">Voice Explain</button><button id="stopGameVoiceBtn" class="danger">Stop Voice</button><button id="closeGameBtn">Back to Table</button></div>
+    </div>
+    <div class="gameGrid">
+      <div class="gameBox">
+        <h3>Flashcard Keyboard Game</h3>
+        <div class="flashCard" id="flashQuestion">Press Start Flashcard</div>
+        <div class="gameInputRow"><input id="flashAnswer" placeholder="Type your answer here and press Enter" /><button id="submitFlashBtn">Submit</button></div>
+        <div class="btnGrid" style="margin-top:9px"><button id="startFlashBtn">Start / Next</button><button id="showFlashHintBtn">Hint</button></div>
+        <p id="flashFeedback" class="small">Score: 0/0</p>
+      </div>
+      <div class="gameBox">
+        <h3>Mix Two Elements</h3>
+        <div class="mixRow"><select id="mixElementA"></select><select id="mixElementB"></select></div>
+        <div class="btnGrid"><button id="mixBtn">Mix Elements</button><button id="speakMixBtn">Voice Result</button></div>
+        <div class="resultBox" id="mixResult">Choose two elements to see an educational possible result.</div>
+      </div>
+      <div class="gameBox" style="grid-column:1/-1">
+        <h3>Chemistry Chatbot</h3>
+        <div class="chatBox" id="chatBox"><div class="bubble bot">Hi! Ask me: “Why is oxygen important?”, “Who discovered iron?”, “What happens if sodium mixes with chlorine?”, or “quiz me carbon”.</div></div>
+        <div class="gameInputRow"><input id="chatInput" placeholder="Ask the chemistry chatbot..." /><button id="sendChatBtn">Send</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="modal" id="quizModal">
+  <div class="modalShell">
+    <div class="modalHeader"><h2>Periodic Table Quiz</h2><div class="topActions"><button id="nextQuizBtn">Next Question</button><button id="closeQuizBtn">Back to Table</button></div></div>
+    <div class="modalBody" style="grid-template-columns:1fr">
+      <div class="detailBox"><h3 id="quizQuestion">Question</h3><div class="quizChoices" id="quizChoices"></div><p id="quizFeedback" class="small"></p></div>
+    </div>
+  </div>
+</section>
+
+<script>
+"use strict";
+const elements = [[1, "H", "Hydrogen", "nonmetal", 1, 1], [2, "He", "Helium", "noble gas", 18, 1], [3, "Li", "Lithium", "alkali metal", 1, 2], [4, "Be", "Beryllium", "alkaline earth metal", 2, 2], [5, "B", "Boron", "metalloid", 13, 2], [6, "C", "Carbon", "nonmetal", 14, 2], [7, "N", "Nitrogen", "nonmetal", 15, 2], [8, "O", "Oxygen", "nonmetal", 16, 2], [9, "F", "Fluorine", "halogen", 17, 2], [10, "Ne", "Neon", "noble gas", 18, 2], [11, "Na", "Sodium", "alkali metal", 1, 3], [12, "Mg", "Magnesium", "alkaline earth metal", 2, 3], [13, "Al", "Aluminium", "post-transition metal", 13, 3], [14, "Si", "Silicon", "metalloid", 14, 3], [15, "P", "Phosphorus", "nonmetal", 15, 3], [16, "S", "Sulfur", "nonmetal", 16, 3], [17, "Cl", "Chlorine", "halogen", 17, 3], [18, "Ar", "Argon", "noble gas", 18, 3], [19, "K", "Potassium", "alkali metal", 1, 4], [20, "Ca", "Calcium", "alkaline earth metal", 2, 4], [21, "Sc", "Scandium", "transition metal", 3, 4], [22, "Ti", "Titanium", "transition metal", 4, 4], [23, "V", "Vanadium", "transition metal", 5, 4], [24, "Cr", "Chromium", "transition metal", 6, 4], [25, "Mn", "Manganese", "transition metal", 7, 4], [26, "Fe", "Iron", "transition metal", 8, 4], [27, "Co", "Cobalt", "transition metal", 9, 4], [28, "Ni", "Nickel", "transition metal", 10, 4], [29, "Cu", "Copper", "transition metal", 11, 4], [30, "Zn", "Zinc", "transition metal", 12, 4], [31, "Ga", "Gallium", "post-transition metal", 13, 4], [32, "Ge", "Germanium", "metalloid", 14, 4], [33, "As", "Arsenic", "metalloid", 15, 4], [34, "Se", "Selenium", "nonmetal", 16, 4], [35, "Br", "Bromine", "halogen", 17, 4], [36, "Kr", "Krypton", "noble gas", 18, 4], [37, "Rb", "Rubidium", "alkali metal", 1, 5], [38, "Sr", "Strontium", "alkaline earth metal", 2, 5], [39, "Y", "Yttrium", "transition metal", 3, 5], [40, "Zr", "Zirconium", "transition metal", 4, 5], [41, "Nb", "Niobium", "transition metal", 5, 5], [42, "Mo", "Molybdenum", "transition metal", 6, 5], [43, "Tc", "Technetium", "transition metal", 7, 5], [44, "Ru", "Ruthenium", "transition metal", 8, 5], [45, "Rh", "Rhodium", "transition metal", 9, 5], [46, "Pd", "Palladium", "transition metal", 10, 5], [47, "Ag", "Silver", "transition metal", 11, 5], [48, "Cd", "Cadmium", "transition metal", 12, 5], [49, "In", "Indium", "post-transition metal", 13, 5], [50, "Sn", "Tin", "post-transition metal", 14, 5], [51, "Sb", "Antimony", "metalloid", 15, 5], [52, "Te", "Tellurium", "metalloid", 16, 5], [53, "I", "Iodine", "halogen", 17, 5], [54, "Xe", "Xenon", "noble gas", 18, 5], [55, "Cs", "Cesium", "alkali metal", 1, 6], [56, "Ba", "Barium", "alkaline earth metal", 2, 6], [57, "La", "Lanthanum", "lanthanide", 3, 8], [58, "Ce", "Cerium", "lanthanide", 4, 8], [59, "Pr", "Praseodymium", "lanthanide", 5, 8], [60, "Nd", "Neodymium", "lanthanide", 6, 8], [61, "Pm", "Promethium", "lanthanide", 7, 8], [62, "Sm", "Samarium", "lanthanide", 8, 8], [63, "Eu", "Europium", "lanthanide", 9, 8], [64, "Gd", "Gadolinium", "lanthanide", 10, 8], [65, "Tb", "Terbium", "lanthanide", 11, 8], [66, "Dy", "Dysprosium", "lanthanide", 12, 8], [67, "Ho", "Holmium", "lanthanide", 13, 8], [68, "Er", "Erbium", "lanthanide", 14, 8], [69, "Tm", "Thulium", "lanthanide", 15, 8], [70, "Yb", "Ytterbium", "lanthanide", 16, 8], [71, "Lu", "Lutetium", "lanthanide", 17, 8], [72, "Hf", "Hafnium", "transition metal", 4, 6], [73, "Ta", "Tantalum", "transition metal", 5, 6], [74, "W", "Tungsten", "transition metal", 6, 6], [75, "Re", "Rhenium", "transition metal", 7, 6], [76, "Os", "Osmium", "transition metal", 8, 6], [77, "Ir", "Iridium", "transition metal", 9, 6], [78, "Pt", "Platinum", "transition metal", 10, 6], [79, "Au", "Gold", "transition metal", 11, 6], [80, "Hg", "Mercury", "transition metal", 12, 6], [81, "Tl", "Thallium", "post-transition metal", 13, 6], [82, "Pb", "Lead", "post-transition metal", 14, 6], [83, "Bi", "Bismuth", "post-transition metal", 15, 6], [84, "Po", "Polonium", "post-transition metal", 16, 6], [85, "At", "Astatine", "halogen", 17, 6], [86, "Rn", "Radon", "noble gas", 18, 6], [87, "Fr", "Francium", "alkali metal", 1, 7], [88, "Ra", "Radium", "alkaline earth metal", 2, 7], [89, "Ac", "Actinium", "actinide", 3, 9], [90, "Th", "Thorium", "actinide", 4, 9], [91, "Pa", "Protactinium", "actinide", 5, 9], [92, "U", "Uranium", "actinide", 6, 9], [93, "Np", "Neptunium", "actinide", 7, 9], [94, "Pu", "Plutonium", "actinide", 8, 9], [95, "Am", "Americium", "actinide", 9, 9], [96, "Cm", "Curium", "actinide", 10, 9], [97, "Bk", "Berkelium", "actinide", 11, 9], [98, "Cf", "Californium", "actinide", 12, 9], [99, "Es", "Einsteinium", "actinide", 13, 9], [100, "Fm", "Fermium", "actinide", 14, 9], [101, "Md", "Mendelevium", "actinide", 15, 9], [102, "No", "Nobelium", "actinide", 16, 9], [103, "Lr", "Lawrencium", "actinide", 17, 9], [104, "Rf", "Rutherfordium", "transition metal", 4, 7], [105, "Db", "Dubnium", "transition metal", 5, 7], [106, "Sg", "Seaborgium", "transition metal", 6, 7], [107, "Bh", "Bohrium", "transition metal", 7, 7], [108, "Hs", "Hassium", "transition metal", 8, 7], [109, "Mt", "Meitnerium", "transition metal", 9, 7], [110, "Ds", "Darmstadtium", "transition metal", 10, 7], [111, "Rg", "Roentgenium", "transition metal", 11, 7], [112, "Cn", "Copernicium", "transition metal", 12, 7], [113, "Nh", "Nihonium", "post-transition metal", 13, 7], [114, "Fl", "Flerovium", "post-transition metal", 14, 7], [115, "Mc", "Moscovium", "post-transition metal", 15, 7], [116, "Lv", "Livermorium", "post-transition metal", 16, 7], [117, "Ts", "Tennessine", "halogen", 17, 7], [118, "Og", "Oganesson", "noble gas", 18, 7]];
+const classMap={'alkali metal':'alkali','alkaline earth metal':'alkaline','transition metal':'transition','post-transition metal':'post','metalloid':'metalloid','nonmetal':'nonmetal','halogen':'halogen','noble gas':'noble','lanthanide':'lanthanide','actinide':'actinide'};
+const CATEGORIES = {
+  'alkali metal':['alkali','Highly reactive metals in Group 1.'],
+  'alkaline earth metal':['alkaline','Reactive Group 2 metals, often found in minerals.'],
+  'transition metal':['transition','Hard metallic elements commonly used in tools, machines, electronics, and catalysts.'],
+  'post-transition metal':['post','Softer metals with important engineering and electronics uses.'],
+  'metalloid':['metalloid','Elements with mixed metal and non-metal properties, important in semiconductors.'],
+  'nonmetal':['nonmetal','Elements essential to life, air, water, and organic chemistry.'],
+  'halogen':['halogen','Reactive nonmetals often used in salts, cleaning chemistry, and lighting.'],
+  'noble gas':['noble','Very low-reactivity gases used in lighting, balloons, lasers, and scientific instruments.'],
+  'lanthanide':['lanthanide','Rare-earth elements used in magnets, screens, lasers, and clean-energy technology.'],
+  'actinide':['actinide','Heavy elements, many radioactive, important in nuclear science and energy.']
+};
+const IMPORTANT = {
+ H:'Hydrogen is important because it is the simplest element, a major part of water, and a possible clean-energy fuel.',
+ He:'Helium is important for balloons, cryogenic cooling, MRI machines, and scientific instruments because it stays gas-like and unreactive.',
+ C:'Carbon is the backbone of organic chemistry and life. It forms diamonds, graphite, plastics, fuels, and biological molecules.',
+ N:'Nitrogen makes up most of Earth’s atmosphere and is essential for proteins, DNA, and fertilisers.',
+ O:'Oxygen supports breathing, combustion, medicine, welding, and water chemistry.',
+ Na:'Sodium is important in salt, nerve signals, chemical production, and street lighting.',
+ Mg:'Magnesium is lightweight and useful in alloys, fireworks, biology, and medicine.',
+ Al:'Aluminium is light, strong, corrosion-resistant, and widely used in aircraft, buildings, cans, and electronics.',
+ Si:'Silicon is the foundation of computer chips, solar cells, glass, ceramics, and modern electronics.',
+ P:'Phosphorus is essential for DNA, bones, energy transfer in cells, and fertilisers.',
+ S:'Sulfur is used in fertilisers, medicine, rubber vulcanisation, and industrial sulfuric acid.',
+ Cl:'Chlorine disinfects water and is used to make many useful chemicals and plastics.',
+ Fe:'Iron is one of the most important engineering metals and is the main element in steel.',
+ Cu:'Copper is important for electrical wiring, motors, electronics, plumbing, and alloys such as bronze.',
+ Zn:'Zinc protects steel from rust through galvanising and is important in batteries and nutrition.',
+ Ag:'Silver has very high electrical conductivity and is used in electronics, jewellery, solar panels, and medicine.',
+ Au:'Gold is valuable because it resists corrosion and is used in jewellery, electronics, finance, and aerospace connectors.',
+ Hg:'Mercury is historically important in thermometers and lamps, but it is toxic and must be handled carefully.',
+ Pb:'Lead is dense and useful for radiation shielding and batteries, but it is toxic and must be controlled.',
+ U:'Uranium is important for nuclear energy and scientific research, but it is radioactive and requires strict safety control.'
+};
+const DISCOVERY = {
+ H:'Recognised as a distinct gas by Henry Cavendish in 1766; Antoine Lavoisier later named it hydrogen.',He:'First observed in the Sun by Pierre Janssen and Norman Lockyer in 1868; isolated on Earth by William Ramsay in 1895.',Li:'Discovered by Johan August Arfwedson in 1817.',Be:'Discovered by Louis Nicolas Vauquelin in 1798.',B:'Isolated by Joseph Louis Gay-Lussac, Louis Jacques Thénard, and Humphry Davy in 1808.',C:'Known since ancient times; no single inventor.',N:'Discovered by Daniel Rutherford in 1772.',O:'Independently discovered by Carl Wilhelm Scheele and Joseph Priestley in the 1770s; named by Antoine Lavoisier.',F:'Isolated by Henri Moissan in 1886.',Ne:'Discovered by William Ramsay and Morris Travers in 1898.',Na:'Isolated by Humphry Davy in 1807.',Mg:'Identified by Joseph Black and isolated by Humphry Davy.',Al:'First isolated in impure form by Hans Christian Ørsted; improved by Friedrich Wöhler.',Si:'Isolated by Jöns Jacob Berzelius in 1824.',P:'Discovered by Hennig Brand in 1669.',S:'Known since ancient times; no single inventor.',Cl:'Discovered by Carl Wilhelm Scheele in 1774 and recognised as an element by Humphry Davy.',Ar:'Discovered by Lord Rayleigh and William Ramsay in 1894.',K:'Isolated by Humphry Davy in 1807.',Ca:'Isolated by Humphry Davy in 1808.',Sc:'Discovered by Lars Fredrik Nilson in 1879.',Ti:'Discovered by William Gregor in 1791 and named by Martin Heinrich Klaproth.',V:'Discovered by Andrés Manuel del Río and later rediscovered by Nils Gabriel Sefström.',Cr:'Discovered by Louis Nicolas Vauquelin in 1797.',Mn:'Identified by Carl Wilhelm Scheele and isolated by Johan Gottlieb Gahn.',Fe:'Known since ancient times; no single inventor.',Co:'Discovered by Georg Brandt in the 1730s.',Ni:'Discovered by Axel Fredrik Cronstedt in 1751.',Cu:'Known since ancient times; no single inventor.',Zn:'Known for centuries; Andreas Marggraf is often credited with isolating pure zinc in 1746.',Ga:'Discovered by Paul-Émile Lecoq de Boisbaudran in 1875.',Ge:'Discovered by Clemens Winkler in 1886.',As:'Known since ancient times; Albertus Magnus is often linked to early isolation.',Se:'Discovered by Jöns Jacob Berzelius in 1817.',Br:'Discovered by Antoine Jérôme Balard in 1826.',Kr:'Discovered by William Ramsay and Morris Travers in 1898.',Rb:'Discovered by Robert Bunsen and Gustav Kirchhoff in 1861.',Sr:'Identified by Adair Crawford; isolated by Humphry Davy.',Y:'Discovered by Johan Gadolin in 1794.',Zr:'Discovered by Martin Heinrich Klaproth; isolated by Jöns Jacob Berzelius.',Nb:'Discovered by Charles Hatchett in 1801.',Mo:'Identified by Carl Wilhelm Scheele and isolated by Peter Jacob Hjelm.',Tc:'First artificially produced by Carlo Perrier and Emilio Segrè in 1937.',Ru:'Discovered by Karl Ernst Claus in 1844.',Rh:'Discovered by William Hyde Wollaston in 1803.',Pd:'Discovered by William Hyde Wollaston in 1803.',Ag:'Known since ancient times; no single inventor.',Cd:'Discovered by Friedrich Stromeyer in 1817.',In:'Discovered by Ferdinand Reich and Hieronymus Richter in 1863.',Sn:'Known since ancient times; no single inventor.',Sb:'Known since ancient times; no single inventor.',Te:'Discovered by Franz-Joseph Müller von Reichenstein in 1782.',I:'Discovered by Bernard Courtois in 1811.',Xe:'Discovered by William Ramsay and Morris Travers in 1898.',Cs:'Discovered by Robert Bunsen and Gustav Kirchhoff in 1860.',Ba:'Identified by Carl Wilhelm Scheele; isolated by Humphry Davy.',La:'Discovered by Carl Gustaf Mosander in 1839.',Ce:'Discovered by Jöns Jacob Berzelius, Wilhelm Hisinger, and Martin Klaproth.',Nd:'Discovered by Carl Auer von Welsbach in 1885.',W:'Discovered by Juan José and Fausto Elhuyar in 1783.',Pt:'Known to Indigenous peoples in South America; introduced to European science in the 18th century.',Au:'Known since ancient times; no single inventor.',Hg:'Known since ancient times; no single inventor.',Pb:'Known since ancient times; no single inventor.',Bi:'Known for centuries; Claude François Geoffroy helped distinguish it from lead and tin.',Po:'Discovered by Marie and Pierre Curie in 1898.',Ra:'Discovered by Marie and Pierre Curie in 1898.',Ac:'Discovered by André-Louis Debierne in 1899.',Th:'Discovered by Jöns Jacob Berzelius in 1828.',Pa:'Discovered by Kasimir Fajans and Oswald Helmuth Göhring; later isolated by Otto Hahn and Lise Meitner.',U:'Discovered by Martin Heinrich Klaproth in 1789.',Np:'First produced by Edwin McMillan and Philip Abelson in 1940.',Pu:'First produced by Glenn Seaborg, Edwin McMillan, Joseph Kennedy, and Arthur Wahl in 1940.',Am:'First produced by Glenn Seaborg and colleagues in 1944.',Cm:'First produced by Glenn Seaborg, Ralph James, and Albert Ghiorso in 1944.',Bk:'First produced by a Berkeley team including Thompson, Ghiorso, and Seaborg in 1949.',Cf:'First produced by a Berkeley team in 1950.',Es:'Identified by Albert Ghiorso and colleagues in 1952.',Fm:'Identified by Albert Ghiorso and colleagues in 1952.',Md:'First produced by Ghiorso, Harvey, Choppin, Thompson, and Seaborg in 1955.',No:'Discovery involved several claims; modern credit is associated with nuclear research teams studying heavy elements.',Lr:'Discovery involved Berkeley and Dubna research; it is named after Ernest Lawrence.',Rf:'Discovery was claimed by Dubna and Berkeley teams; named after Ernest Rutherford.',Db:'Discovery involved Dubna and Berkeley heavy-element research.',Sg:'First reported by a Lawrence Berkeley Laboratory team in 1974.',Bh:'First produced at GSI Darmstadt in 1981.',Hs:'First produced at GSI Darmstadt in 1984.',Mt:'First produced at GSI Darmstadt in 1982.',Ds:'First produced at GSI Darmstadt in 1994.',Rg:'First produced at GSI Darmstadt in 1994.',Cn:'First produced at GSI Darmstadt in 1996.',Nh:'First produced by the RIKEN team in Japan and officially named Nihonium.',Fl:'First produced by JINR Dubna and Lawrence Livermore National Laboratory collaboration.',Mc:'First produced by JINR Dubna and Lawrence Livermore National Laboratory collaboration.',Lv:'First produced by JINR Dubna and Lawrence Livermore National Laboratory collaboration.',Ts:'First produced by an international collaboration involving JINR Dubna, ORNL, Vanderbilt, and LLNL.',Og:'First produced by JINR Dubna and Lawrence Livermore National Laboratory collaboration.'
+};
+const USES = {
+ H:'Fuel cells, ammonia production, water chemistry, rocket fuel, and clean-energy research.',He:'MRI cooling, balloons, leak detection, deep-sea breathing mixtures, and scientific cryogenics.',C:'Steel, pencils, diamonds, batteries, plastics, fuels, carbon fibre, and living organisms.',O:'Breathing support, hospitals, welding, steelmaking, rockets, and water.',Fe:'Steel beams, machinery, tools, bridges, vehicles, and construction.',Cu:'Wires, motors, circuit boards, plumbing, coins, and heat exchangers.',Si:'Microchips, solar panels, glass, ceramics, concrete, and silicone materials.',Au:'Jewellery, electronics connectors, dentistry, aerospace parts, and financial reserves.',U:'Nuclear power fuel, research reactors, and scientific dating methods under strict safety rules.'
+};
+const $=id=>document.getElementById(id);
+const world=$('world'), stage=$('stageWrap');
+let cards=[], layout='table', yaw=0, pitch=0, zoom=0.82, panX=0, panY=40, selected=null, isDayMode=false, dragging=false, lx=0, ly=0;
+let cinematicSpin=true;
+function initWowLayer(){const layer=$('wowLayer');if(!layer||layer.dataset.ready)return;for(let i=0;i<34;i++){const s=document.createElement('span');s.className='spark';s.style.left=(8+Math.random()*84)+'%';s.style.top=(8+Math.random()*84)+'%';s.style.animationDelay=(-Math.random()*4).toFixed(2)+'s';s.style.animationDuration=(3.2+Math.random()*3.8).toFixed(2)+'s';layer.appendChild(s);}layer.dataset.ready='1';}
+function updateWowMode(){stage.classList.toggle('sphereWow',layout==='sphere');stage.classList.toggle('helixWow',layout==='helix');const cap=$('wowCaption');if(cap){if(layout==='sphere')cap.textContent='Sphere mode: elements orbit as a glowing 3D chemistry globe';else if(layout==='helix')cap.textContent='Helix mode: elements spiral upward like a DNA-inspired chemistry tower';else cap.textContent='Cinematic 3D layout active';}}
+function displayPeriod(e){return e[5]>7?e[5]-2:e[5];}
+function targetsFor(type,i,e){const w=128,h=112;if(type==='table')return[(e[4]-9.5)*w,(e[5]-5)*h,0];if(type==='sphere'){const n=elements.length,golden=Math.PI*(3-Math.sqrt(5));const y=1-(i/(n-1))*2;const r=Math.sqrt(1-y*y);const theta=i*golden;return[390*Math.cos(theta)*r,390*y,390*Math.sin(theta)*r];}if(type==='helix'){const t=i*.42+Math.PI;const radius=350+Math.sin(i*.18)*18;return[radius*Math.sin(t),(i-59)*8.5,radius*Math.cos(t)];}const cols=8;return[((i%cols)-3.5)*132,(Math.floor(i/cols)-6.8)*116,((i%3)-1)*105]}
+function makeCards(){elements.forEach((e,i)=>{const d=document.createElement('div');const len=e[2].length;d.className='element '+classMap[e[3]]+(len>10?' longName':'')+(len>13?' veryLongName':'');d.title=`${e[2]} (${e[1]}) - Atomic number ${e[0]}`;d.innerHTML=`<div class="num">${e[0]}</div><div class="sym">${e[1]}</div><div class="name">${e[2]}</div><div class="mass">${(e[0]*1.73).toFixed(2)}</div>`;d.onclick=()=>selectElement(e,d,true);world.appendChild(d);const p=targetsFor('table',i,e);cards.push({el:d,data:e,x:p[0],y:p[1],z:p[2],tx:p[0],ty:p[1],tz:p[2]});})}
+function setLayout(t){layout=t;cards.forEach((c,i)=>{const p=targetsFor(t,i,c.data);c.tx=p[0];c.ty=p[1];c.tz=p[2];});document.querySelectorAll('[data-layout]').forEach(b=>b.classList.toggle('active',b.dataset.layout===t));$('layoutStatus').textContent='Layout: '+t.charAt(0).toUpperCase()+t.slice(1);updateWowMode();if(t==='sphere'){zoom=.66;pitch=.18;panY=0;panX=0;$('zoomSlider').value=zoom;$('sideScrollSlider').value=0;}else if(t==='helix'){zoom=.60;pitch=.04;panY=0;panX=0;$('zoomSlider').value=zoom;$('sideScrollSlider').value=0;}}
+function projectLoop(){const rect=stage.getBoundingClientRect();const cx=rect.width/2, cy0=rect.height/2;const now=performance.now()/1000;if((layout==='sphere'||layout==='helix')&&!dragging&&cinematicSpin){yaw+=layout==='sphere'?0.0029:0.0021;pitch+=((layout==='sphere'?0.18:0.04)-pitch)*0.015;}cards.forEach((c,i)=>{const transitionSpeed=(layout==='sphere'||layout==='helix')?.075:.09;c.x+=(c.tx-c.x)*transitionSpeed;c.y+=(c.ty-c.y)*transitionSpeed;c.z+=(c.tz-c.z)*transitionSpeed;let x=c.x,y=c.y,z=c.z;if(layout==='sphere'){const breath=1+Math.sin(now*1.7+i*.11)*0.012;x*=breath;y*=breath;z*=breath;}if(layout==='helix'){const wave=Math.sin(now*2.1+i*.22);y+=wave*7;z+=Math.cos(now*1.4+i*.15)*5;}const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);let x1=x*cy-z*sy,z1=x*sy+z*cy;let y1=y*cp-z1*sp;z1=y*sp+z1*cp;const perspectiveBase=(layout==='sphere'||layout==='helix')?860:760;const s=zoom*perspectiveBase/(perspectiveBase+z1);const sx=cx+panX+x1*s, syy=cy0+panY+y1*s;const tiltY=Math.max(-18,Math.min(18,(x1/760)*12));const tiltX=Math.max(-12,Math.min(12,(-y1/760)*9));const depthGlow=Math.max(0,Math.min(1,1-(z1+420)/900));const pulse=(layout==='sphere'||layout==='helix')?1+Math.sin(now*2+i*.18)*0.018:1;c.el.style.setProperty('--depthGlow',depthGlow.toFixed(2));c.el.style.transform=`translate3d(${sx}px,${syy}px,${Math.max(-900,-z1/6)}px) scale(${Math.max(.18,s*pulse)}) rotateY(${tiltY}deg) rotateX(${tiltX}deg) rotateZ(${layout==='helix'?Math.sin(now+i*.1)*1.8:0}deg)`;c.el.style.zIndex=String(Math.round(12000-z1));});requestAnimationFrame(projectLoop)}
+function applyFilter(){const q=$('searchInput').value.toLowerCase().trim(),cat=$('categorySelect').value;let count=0;cards.forEach(c=>{const e=c.data;const hit=(e[1].toLowerCase().includes(q)||e[2].toLowerCase().includes(q)||String(e[0])===q)&&(cat==='all'||e[3]===cat);c.el.classList.toggle('dim',!hit);if(hit)count++;});$('visibleCount').textContent=count;}
+function selectElement(e,d,open=false){document.querySelectorAll('.element').forEach(x=>x.classList.remove('selected'));d.classList.add('selected');selected=e;$('selectedStatus').textContent=`${e[2]} (${e[1]})`;updatePreview(e);if(open)openDetail(e);applyTableStyle();}
+function updatePreview(e){$('preview').innerHTML=`<div class="big">${e[1]}</div><b>${e[2]}</b><div class="facts"><div><span>No.</span><br><b>${e[0]}</b></div><div><span>Category</span><br><b>${e[3]}</b></div><div><span>Group</span><br><b>${e[4]}</b></div><div><span>Period</span><br><b>${displayPeriod(e)}</b></div></div><button style="width:100%;margin-top:10px" onclick="openDetailBySymbol('${e[1]}')">Open Detail Page</button>`;}
+function openDetailBySymbol(sym){const e=elements.find(x=>x[1]===sym);if(e)openDetail(e);}
+function getDiscovery(e){return DISCOVERY[e[1]]||(e[0]>92?'This is a synthetic heavy element created by nuclear research teams, not invented in the usual sense.':'This element was identified through historical chemistry. Some natural elements do not have one single inventor because they were known before modern chemistry.');}
+function getImportance(e){return IMPORTANT[e[1]]||`${e[2]} is important because it belongs to the ${e[3]} family. ${CATEGORIES[e[3]]?.[1]||'It helps students connect atomic structure with chemical behaviour.'}`;}
+function getUses(e){const byCat={'alkali metal':'batteries, salts, chemical synthesis, glass, medicine, and laboratory reactions.','alkaline earth metal':'alloys, minerals, fireworks, construction materials, medicine, and biological systems.','transition metal':'machines, alloys, magnets, catalysts, electronics, construction, and engineering materials.','post-transition metal':'electronics, low-melting alloys, coatings, shielding, and specialist engineering materials.','metalloid':'semiconductors, glass, ceramics, electronics, sensors, and solar technology.','nonmetal':'life processes, air, water, fertilisers, medicines, plastics, and organic chemistry.','halogen':'disinfection, salts, medicines, lamps, polymers, and chemical manufacturing.','noble gas':'lighting, lasers, shielding gas, balloons, cryogenic science, and low-reactivity environments.','lanthanide':'strong magnets, phone screens, lasers, electric vehicles, wind turbines, and phosphors.','actinide':'nuclear science, energy research, smoke detectors, space power systems, and specialised research.'};return USES[e[1]]||`${e[2]} can be linked to ${byCat[e[3]]||'science, industry, and education.'}`;}
+function getWhat(e){return `${e[2]} has the chemical symbol ${e[1]} and atomic number ${e[0]}. It is classified as a ${e[3]}. Its group and period position help students predict chemical behaviour and compare it with neighbouring elements.`;}
+function speak(text){if(!('speechSynthesis' in window)){alert('Voice is not supported in this browser.');return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=.95;u.pitch=1;u.volume=1;speechSynthesis.speak(u);}
+function stopVoice(){if('speechSynthesis' in window)speechSynthesis.cancel();}
+function openDetail(e){selected=e;$('detailTitle').textContent=`${e[2]} (${e[1]})`;$('detailSub').textContent=`Atomic number ${e[0]} • ${e[3]} • Group ${e[4]} • Period ${displayPeriod(e)}`;$('atomSymbol').textContent=e[1];$('elementFacts').innerHTML=`<div><b>${e[0]}</b><br>Atomic No.</div><div><b>${e[1]}</b><br>Symbol</div><div><b>${e[4]}</b><br>Group</div><div><b>${displayPeriod(e)}</b><br>Period</div><div style="grid-column:1/3"><b>${e[3]}</b><br>Category</div>`;$('whatText').textContent=getWhat(e);$('importantText').textContent=getImportance(e);$('usesText').textContent=getUses(e);$('discoverText').textContent=getDiscovery(e);buildElementQuiz(e);$('detailModal').classList.add('active');}
+function speakSelectedDetail(){if(!selected)return;const e=selected;speak(`${e[2]}. Symbol ${e[1]}. Atomic number ${e[0]}. ${getWhat(e)} Why important: ${getImportance(e)} Real life uses: ${getUses(e)} Discovery: ${getDiscovery(e)}`);}
+function buildElementQuiz(e){const options=[e[1]];while(options.length<4){const r=elements[Math.floor(Math.random()*elements.length)][1];if(!options.includes(r))options.push(r)}options.sort(()=>Math.random()-.5);$('elementQuizQuestion').textContent=`Which symbol represents ${e[2]}?`;$('elementQuizFeedback').textContent='Choose one answer.';$('elementQuizChoices').innerHTML='';options.forEach(op=>{const b=document.createElement('button');b.className='quizChoice';b.textContent=op;b.onclick=()=>{document.querySelectorAll('#elementQuizChoices .quizChoice').forEach(x=>x.disabled=true);if(op===e[1]){b.classList.add('correct');$('elementQuizFeedback').textContent='Correct!'}else{b.classList.add('wrong');$('elementQuizFeedback').textContent=`Not correct. The answer is ${e[1]}.`;}};$('elementQuizChoices').appendChild(b);});}
+const quizData=[{q:'What is the chemical symbol for Hydrogen?',choices:['H','He','Hy','Hg'],ans:0},{q:'What is the atomic number of Carbon?',choices:['4','6','8','12'],ans:1},{q:'Which category does Neon belong to?',choices:['Alkali metal','Noble gas','Halogen','Transition metal'],ans:1},{q:'Which element has atomic number 79?',choices:['Silver','Gold','Copper','Zinc'],ans:1},{q:'Which element has the symbol Fe?',choices:['Fluorine','Iron','Francium','Fermium'],ans:1}];
+let quizIndex=0, quizScore=0;
+function openQuiz(){quizIndex=0;quizScore=0;$('quizModal').classList.add('active');loadQuiz();}
+function loadQuiz(){if(quizIndex>=quizData.length){$('quizQuestion').textContent='Quiz Completed';$('quizChoices').innerHTML='';$('quizFeedback').innerHTML=`Final score: <b>${quizScore}/${quizData.length}</b>`;return;}const q=quizData[quizIndex];$('quizQuestion').textContent=`Question ${quizIndex+1}: ${q.q}`;$('quizFeedback').textContent=`Score: ${quizScore}/${quizData.length}`;$('quizChoices').innerHTML='';q.choices.forEach((c,i)=>{const b=document.createElement('button');b.className='quizChoice';b.textContent=c;b.onclick=()=>{document.querySelectorAll('#quizChoices .quizChoice').forEach(x=>x.disabled=true);if(i===q.ans){quizScore++;b.classList.add('correct');$('quizFeedback').textContent='Correct!'}else{b.classList.add('wrong');$('quizChoices').children[q.ans].classList.add('correct');$('quizFeedback').textContent=`Not correct. The answer is ${q.choices[q.ans]}.`;}};$('quizChoices').appendChild(b);});}
+function renderLegend(){const legend=$('legend');legend.innerHTML='';Object.entries(classMap).forEach(([cat,cls])=>{const s=document.createElement('span');s.innerHTML=`<i class="dot ${cls}"></i>${cat}`;legend.appendChild(s);});}
+
+// Table visual style controls
+let tableOpacity=.98, tableColourMode='original', tableCustomColour='#45d5ff', tableThemeMode='default';
+function shadeHex(hex,f=.55){const n=parseInt(hex.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;const rr=Math.max(0,Math.min(255,Math.round(r*f))),gg=Math.max(0,Math.min(255,Math.round(g*f))),bb=Math.max(0,Math.min(255,Math.round(b*f)));return `rgb(${rr},${gg},${bb})`;}
+function applyReadableTheme(){
+  document.body.classList.remove('theme-soft','theme-contrast','theme-flat','theme-bigtext');
+  if(tableThemeMode==='soft')document.body.classList.add('theme-soft');
+  if(tableThemeMode==='contrast')document.body.classList.add('theme-contrast');
+  if(tableThemeMode==='flat')document.body.classList.add('theme-flat');
+  if(tableThemeMode==='bigtext')document.body.classList.add('theme-bigtext');
+}
+function applyTableStyle(){
+  applyReadableTheme();
+  document.documentElement.style.setProperty('--cardOpacity', tableOpacity);
+  document.body.classList.toggle('glassCards', tableColourMode==='glass');
+  cards.forEach(c=>{c.el.classList.remove('colorPulse');
+    if(tableColourMode==='original' || tableColourMode==='glass'){c.el.style.background='';}
+    if(tableColourMode==='customAll'){c.el.style.background=`linear-gradient(145deg,${tableCustomColour},${shadeHex(tableCustomColour,.42)})`;}
+    if(tableColourMode==='selectedOnly'){c.el.style.background=(selected&&c.data[1]===selected[1])?`linear-gradient(145deg,${tableCustomColour},${shadeHex(tableCustomColour,.42)})`:'';}
+    if(tableColourMode==='pulse'){c.el.style.background='';c.el.classList.add('colorPulse');}
+  });
+}
+function setTransparentMode(){tableColourMode='glass';tableOpacity=.56;$('tableOpacitySlider').value=tableOpacity;$('tableColorMode').value='glass';applyTableStyle();}
+function resetOriginalColours(){tableColourMode='original';tableThemeMode='default';tableOpacity=.98;$('tableOpacitySlider').value=tableOpacity;$('tableColorMode').value='original';$('tableThemeMode').value='default';applyTableStyle();}
+
+// Flashcard game + element mixing + chatbot
+let flashCurrent=null, flashMode='symbol', flashScore=0, flashTotal=0, lastMixText='';
+function openGame(){populateMixSelectors();$('gameModal').classList.add('active');setTimeout(()=>$('flashAnswer').focus(),80);}
+function closeGame(){stopVoice();$('gameModal').classList.remove('active');}
+function randomElement(){return elements[Math.floor(Math.random()*elements.length)];}
+function nextFlash(){flashCurrent=randomElement();const modes=['symbol','name','atomic','category'];flashMode=modes[Math.floor(Math.random()*modes.length)];let q='';
+  if(flashMode==='symbol')q=`What is the chemical symbol for ${flashCurrent[2]}?`;
+  if(flashMode==='name')q=`Which element has the symbol ${flashCurrent[1]}?`;
+  if(flashMode==='atomic')q=`What is the atomic number of ${flashCurrent[2]}?`;
+  if(flashMode==='category')q=`What category is ${flashCurrent[2]}?`;
+  $('flashQuestion').textContent=q;$('flashAnswer').value='';$('flashFeedback').textContent=`Score: ${flashScore}/${flashTotal}. Type your answer and press Enter.`;$('flashAnswer').focus();
+}
+function expectedFlashAnswer(){if(!flashCurrent)return'';if(flashMode==='symbol')return flashCurrent[1];if(flashMode==='name')return flashCurrent[2];if(flashMode==='atomic')return String(flashCurrent[0]);return flashCurrent[3];}
+function submitFlash(){if(!flashCurrent)nextFlash();const ans=$('flashAnswer').value.trim().toLowerCase();if(!ans){$('flashFeedback').textContent='Please type your answer first.';return;}const expect=expectedFlashAnswer().toLowerCase();flashTotal++;let correct=false;
+  if(flashMode==='category')correct=ans===expect || expect.includes(ans);
+  else correct=ans===expect;
+  if(correct){flashScore++;$('flashFeedback').innerHTML=`✅ Correct! Answer: <b>${expectedFlashAnswer()}</b>. Score: ${flashScore}/${flashTotal}.`;setTimeout(nextFlash,750);}else{$('flashFeedback').innerHTML=`❌ Not correct. Correct answer: <b>${expectedFlashAnswer()}</b>. Score: ${flashScore}/${flashTotal}.`;}
+}
+function showFlashHint(){if(!flashCurrent)return;let hint=`Hint: ${flashCurrent[2]} is a ${flashCurrent[3]}, group ${flashCurrent[4]}, period ${displayPeriod(flashCurrent)}.`;$('flashFeedback').textContent=hint;speak(hint);}
+function populateMixSelectors(){const ids=['mixElementA','mixElementB'];ids.forEach(id=>{const sel=$(id);if(sel.options.length)return;elements.forEach(e=>{const o=document.createElement('option');o.value=e[1];o.textContent=`${e[1]} - ${e[2]}`;sel.appendChild(o);});});$('mixElementA').value='H';$('mixElementB').value='O';}
+const mixFacts={
+  'Cl+Na':'Sodium and chlorine can form sodium chloride, NaCl, common table salt. Sodium is very reactive and chlorine is a toxic gas, but the compound has very different properties.',
+  'H+O':'Hydrogen and oxygen can form water, H₂O, when they react under suitable conditions. This reaction releases energy, so it must be handled safely.',
+  'C+O':'Carbon and oxygen can form carbon dioxide, CO₂, or carbon monoxide, CO, depending on oxygen supply. CO₂ is important in respiration, fire extinguishers, and climate science.',
+  'Fe+O':'Iron and oxygen can form iron oxide, commonly known as rust. This is why steel structures need paint, coating, or galvanising protection.',
+  'H+N':'Nitrogen and hydrogen can form ammonia, NH₃, under industrial conditions. Ammonia is important for fertiliser production.',
+  'Cl+H':'Hydrogen and chlorine can form hydrogen chloride, HCl. In water, it becomes hydrochloric acid.',
+  'Ca+O':'Calcium and oxygen can form calcium oxide, CaO, also called quicklime, used in cement and construction chemistry.',
+  'C+Fe':'Iron and carbon form steel when carbon is added in controlled amounts. This is one of the most important materials in engineering.',
+  'Cu+Zn':'Copper and zinc form brass, an alloy used in fittings, instruments, decoration, and engineering parts.',
+  'Cu+Sn':'Copper and tin form bronze, an alloy historically important for tools, sculptures, and bearings.',
+  'Al+O':'Aluminium reacts with oxygen to form aluminium oxide, a thin protective layer that helps aluminium resist corrosion.',
+  'Mg+O':'Magnesium burns in oxygen to form magnesium oxide with a bright white flame. This demonstrates combustion and oxidation.'
+};
+function mixKey(a,b){return [a,b].sort().join('+');}
+function mixElements(){const a=$('mixElementA').value,b=$('mixElementB').value;if(a===b){lastMixText=`${a} mixed with itself stays the same element. It may change state or structure, but it is not a new element.`;$('mixResult').textContent=lastMixText;return;}const ea=elements.find(e=>e[1]===a), eb=elements.find(e=>e[1]===b);const key=mixKey(a,b);lastMixText=mixFacts[key];if(!lastMixText){lastMixText=`${ea[2]} and ${eb[2]} may react, form an alloy, form a compound, or not react easily depending on temperature, pressure, catalyst, and chemical conditions. Their categories are ${ea[3]} and ${eb[3]}, so compare their groups to predict behaviour.`;}$('mixResult').textContent=lastMixText;}
+function speakGameIntro(){speak('This game page has a flashcard typing challenge, an element mixing activity, and a chemistry chatbot. Type your answer and press enter. You can also choose two elements to see a possible compound, alloy, or reaction idea.');}
+function addChatBubble(text,who='bot'){const box=$('chatBox');const div=document.createElement('div');div.className=`bubble ${who}`;div.textContent=text;box.appendChild(div);box.scrollTop=box.scrollHeight;}
+function findElementFromText(msg){const m=msg.toLowerCase();return elements.find(e=>m.includes(e[2].toLowerCase()) || new RegExp(`(^|\\s)${e[1].toLowerCase()}($|\\s|[?.!,])`).test(m));}
+function chatbotReply(msg){const m=msg.toLowerCase();let e=findElementFromText(msg);
+  if(m.includes('mix')||m.includes('combine')||m.includes('react')){const found=elements.filter(x=>m.includes(x[2].toLowerCase())||new RegExp(`(^|\\s)${x[1].toLowerCase()}($|\\s|[?.!,])`).test(m)).slice(0,2);if(found.length>=2){const key=mixKey(found[0][1],found[1][1]);return mixFacts[key]||`${found[0][2]} and ${found[1][2]} may form a compound, alloy, or show little reaction depending on the condition. Try them in the Mix Two Elements section.`;}return 'Tell me two elements to mix, for example: mix sodium and chlorine.';}
+  if(m.includes('quiz')){nextFlash();return 'I started a flashcard question for you. Type the answer in the flashcard box and press Enter.';}
+  if(!e && selected)e=selected;
+  if(e){if(m.includes('discover')||m.includes('invent')||m.includes('who'))return getDiscovery(e);if(m.includes('important')||m.includes('why'))return getImportance(e);if(m.includes('use'))return getUses(e);if(m.includes('group'))return `${e[2]} is in Group ${e[4]}. Its period is ${displayPeriod(e)} and its category is ${e[3]}.`;if(m.includes('category'))return `${e[2]} is classified as a ${e[3]}. ${CATEGORIES[e[3]]?.[1]||''}`;return `${e[2]} (${e[1]}) has atomic number ${e[0]}. ${getWhat(e)} ${getImportance(e)}`;}
+  if(m.includes('transparent')||m.includes('color')||m.includes('colour'))return 'Use the Table Colour + Transparency controls on the left panel. You can keep original category colours, make the table transparent, or apply a custom colour.';
+  return 'I can answer about element symbol, atomic number, category, group, uses, importance, discovery, or element mixing. Try asking: Why is silicon important?';
+}
+function sendChat(){const msg=$('chatInput').value.trim();if(!msg)return;addChatBubble(msg,'user');$('chatInput').value='';const reply=chatbotReply(msg);addChatBubble(reply,'bot');}
+
+function openHelp(){ $('helpModal').classList.add('active'); }
+function closeHelp(){ $('helpModal').classList.remove('active'); }
+function toggleHelp(){ $('helpModal').classList.toggle('active'); }
+
+// UI events
+makeCards();renderLegend();applyTableStyle();initWowLayer();updateWowMode();projectLoop();applyFilter();
+applyTableStyle();
+document.querySelectorAll('[data-layout]').forEach(b=>b.onclick=()=>setLayout(b.dataset.layout));$('searchInput').oninput=applyFilter;$('categorySelect').onchange=applyFilter;
+$('zoomSlider').oninput=e=>{zoom=parseFloat(e.target.value);};$('rotateSlider').oninput=e=>{yaw=parseFloat(e.target.value);};
+function updateSideScroll(v){panX=parseFloat(v);const slider=$('sideScrollSlider');if(slider)slider.value=panX;}
+$('sideScrollSlider').oninput=e=>updateSideScroll(e.target.value);$('sideLeftBtn').onclick=()=>updateSideScroll(Math.min(1100,panX+120));$('sideRightBtn').onclick=()=>updateSideScroll(Math.max(-1100,panX-120));
+$('moveUpBtn').onclick=()=>panY+=40;$('moveDownBtn').onclick=()=>panY-=40;$('moveLeftBtn').onclick=()=>updateSideScroll(Math.min(1100,panX+80));$('moveRightBtn').onclick=()=>updateSideScroll(Math.max(-1100,panX-80));$('zoomInBtn').onclick=()=>{zoom=Math.min(2.2,zoom*1.12);$('zoomSlider').value=zoom;};$('zoomOutBtn').onclick=()=>{zoom=Math.max(.35,zoom*.88);$('zoomSlider').value=zoom;};
+$('resetBtn').onclick=()=>{yaw=0;pitch=0;zoom=.62;panX=0;panY=40;setLayout('table');$('zoomSlider').value=zoom;$('rotateSlider').value=0;const slider=$('sideScrollSlider');if(slider)slider.value=0;};
+$('scrollDownPanelBtn').onclick=()=>$('leftPanel').scrollBy({top:260,behavior:'smooth'});$('scrollTopPanelBtn').onclick=()=>$('leftPanel').scrollTo({top:0,behavior:'smooth'});$('floatDownBtn').onclick=()=>$('leftPanel').scrollBy({top:260,behavior:'smooth'});$('floatTopBtn').onclick=()=>{$('leftPanel').scrollTo({top:0,behavior:'smooth'});$('rightPanel').scrollTo({top:0,behavior:'smooth'});};
+$('openSelectedBtn').onclick=()=>{if(selected)openDetail(selected);else alert('Please select one element first.');};$('voiceIntroBtn').onclick=()=>speak('Welcome to the interactive 3D periodic table. Use Table, Sphere, Helix, and Grid layouts. Click any element to open a detailed lesson with voice and quiz.');$('stopVoiceBtn').onclick=stopVoice;$('openQuizBtn').onclick=openQuiz;$('closeQuizBtn').onclick=()=>$('quizModal').classList.remove('active');$('nextQuizBtn').onclick=()=>{quizIndex++;loadQuiz();};$('closeDetailBtn').onclick=()=>$('detailModal').classList.remove('active');$('speakDetailBtn').onclick=speakSelectedDetail;$('stopVoiceDetailBtn').onclick=stopVoice;
+$('openGameBtn').onclick=openGame;$('openGameSideBtn').onclick=openGame;$('closeGameBtn').onclick=closeGame;$('speakGameBtn').onclick=speakGameIntro;$('stopGameVoiceBtn').onclick=stopVoice;$('startFlashBtn').onclick=nextFlash;$('submitFlashBtn').onclick=submitFlash;$('showFlashHintBtn').onclick=showFlashHint;$('flashAnswer').addEventListener('keydown',e=>{if(e.key==='Enter')submitFlash();});$('mixBtn').onclick=mixElements;$('speakMixBtn').onclick=()=>{if(!lastMixText)mixElements();speak(lastMixText);};$('sendChatBtn').onclick=sendChat;$('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});$('toggleHelpBtn').onclick=toggleHelp;$('floatHelpBtn').onclick=toggleHelp;$('closeHelpBtn').onclick=closeHelp;
+$('tableOpacitySlider').oninput=e=>{tableOpacity=parseFloat(e.target.value);applyTableStyle();};$('tableColorPicker').oninput=e=>{tableCustomColour=e.target.value;applyTableStyle();};$('tableColorMode').onchange=e=>{tableColourMode=e.target.value;applyTableStyle();};$('tableThemeMode').onchange=e=>{tableThemeMode=e.target.value;applyTableStyle();};$('transparentBtn').onclick=setTransparentMode;$('originalColourBtn').onclick=resetOriginalColours;
+stage.addEventListener('mousedown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;});window.addEventListener('mouseup',()=>dragging=false);window.addEventListener('mousemove',e=>{if(!dragging)return;yaw+=(e.clientX-lx)*.006;pitch+=(e.clientY-ly)*.006;pitch=Math.max(-1.1,Math.min(1.1,pitch));$('rotateSlider').value=Math.max(-3.14,Math.min(3.14,yaw));lx=e.clientX;ly=e.clientY;});stage.addEventListener('wheel',e=>{e.preventDefault();zoom*=e.deltaY>0?.92:1.08;zoom=Math.max(.35,Math.min(2.2,zoom));$('zoomSlider').value=zoom;},{passive:false});
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='h')toggleHelp();if(k==='a')updateSideScroll(Math.min(1100,panX+36));if(k==='d')updateSideScroll(Math.max(-1100,panX-36));if(k==='w')panY+=24;if(k==='s')panY-=24;if(e.key==='ArrowLeft')labCamYaw-=.08;if(e.key==='ArrowRight')labCamYaw+=.08;if(e.key==='ArrowUp')labCamPitch+=.06;if(e.key==='ArrowDown')labCamPitch-=.06;if(e.key==='Escape'){$('detailModal').classList.remove('active');$('quizModal').classList.remove('active');$('gameModal').classList.remove('active');$('helpModal').classList.remove('active');stopVoice();}});
+// WebGL interactive object lab
+const canvas=$('labCanvas'), gl=canvas.getContext('webgl',{alpha:true,antialias:true});
+let labRunning=true, labLighting=true, labShadow=true, labCollision=true, labShape='all', labMode='rotation', labSpeed=1, labColor=[0.27,0.83,1,1], labShading='phong', labCamera='front', labCamYaw=0, labCamPitch=.1;
+function resizeLab(){const r=canvas.getBoundingClientRect();canvas.width=Math.max(300,Math.floor(r.width*devicePixelRatio));canvas.height=Math.max(180,Math.floor(r.height*devicePixelRatio));if(gl)gl.viewport(0,0,canvas.width,canvas.height);}window.addEventListener('resize',resizeLab);resizeLab();
+if(gl){
+const vs=`attribute vec3 p;attribute vec3 n;uniform mat4 mvp;uniform mat4 model;varying vec3 N;varying vec3 W;void main(){vec4 w=model*vec4(p,1.0);W=w.xyz;N=mat3(model)*n;gl_Position=mvp*vec4(p,1.0);}`;
+const fs=`precision mediump float;varying vec3 N;varying vec3 W;uniform vec4 color;uniform vec3 light;uniform float useLight;uniform float useShadow;uniform float shade;void main(){vec3 nn=normalize(N);vec3 l=normalize(light-W);float d=max(dot(nn,l),0.0);float bands=floor(d*4.0)/4.0;float spec=pow(max(dot(reflect(-l,nn),normalize(-W)),0.0),28.0);float grid=step(.94,max(fract(W.x*5.0),fract(W.y*5.0)));vec3 phong=color.rgb*(0.28+d*.78)+vec3(1.0)*spec*.45;vec3 lambert=color.rgb*(0.32+d*.68);vec3 toon=color.rgb*(0.35+bands*.80);vec3 normal=abs(nn);vec3 wire=mix(color.rgb,vec3(1.0),grid);vec3 c=phong;if(shade<.5)c=phong;else if(shade<1.5)c=lambert;else if(shade<2.5)c=toon;else if(shade<3.5)c=normal;else c=wire;if(useLight<.5)c=color.rgb;if(useShadow>.5)c*=.82+max(dot(nn,l),0.0)*.25;gl_FragColor=vec4(c,color.a);}`;
+function shader(t,s){const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);if(!gl.getShaderParameter(x,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(x));return x;}
+const pr=gl.createProgram();gl.attachShader(pr,shader(gl.VERTEX_SHADER,vs));gl.attachShader(pr,shader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);gl.useProgram(pr);
+const loc={p:gl.getAttribLocation(pr,'p'),n:gl.getAttribLocation(pr,'n'),mvp:gl.getUniformLocation(pr,'mvp'),model:gl.getUniformLocation(pr,'model'),color:gl.getUniformLocation(pr,'color'),light:gl.getUniformLocation(pr,'light'),useLight:gl.getUniformLocation(pr,'useLight'),useShadow:gl.getUniformLocation(pr,'useShadow'),shade:gl.getUniformLocation(pr,'shade')};
+function I(){return[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}function MM(a,b){let r=new Array(16);for(let c=0;c<4;c++)for(let row=0;row<4;row++)r[c*4+row]=a[0*4+row]*b[c*4+0]+a[1*4+row]*b[c*4+1]+a[2*4+row]*b[c*4+2]+a[3*4+row]*b[c*4+3];return r}function T(x,y,z){let m=I();m[12]=x;m[13]=y;m[14]=z;return m}function S(x,y,z){let m=I();m[0]=x;m[5]=y;m[10]=z;return m}function RX(a){let c=Math.cos(a),s=Math.sin(a),m=I();m[5]=c;m[6]=s;m[9]=-s;m[10]=c;return m}function RY(a){let c=Math.cos(a),s=Math.sin(a),m=I();m[0]=c;m[2]=-s;m[8]=s;m[10]=c;return m}function RZ(a){let c=Math.cos(a),s=Math.sin(a),m=I();m[0]=c;m[1]=s;m[4]=-s;m[5]=c;return m}function P(f,asp,n,fa){let q=1/Math.tan(f/2),m=I();m[0]=q/asp;m[5]=q;m[10]=(fa+n)/(n-fa);m[11]=-1;m[14]=2*fa*n/(n-fa);m[15]=0;return m}
+function mesh(a){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(a),gl.STATIC_DRAW);return{b,count:a.length/6}}
+function tri(a,p1,p2,p3){let u=[p2[0]-p1[0],p2[1]-p1[1],p2[2]-p1[2]],v=[p3[0]-p1[0],p3[1]-p1[1],p3[2]-p1[2]],n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n)||1;n=n.map(x=>x/l);[p1,p2,p3].forEach(p=>a.push(...p,...n));}
+function cube(){let a=[],v=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]],f=[[0,1,2,3],[5,4,7,6],[4,0,3,7],[1,5,6,2],[3,2,6,7],[4,5,1,0]];f.forEach(q=>{tri(a,v[q[0]],v[q[1]],v[q[2]]);tri(a,v[q[0]],v[q[2]],v[q[3]]);});return mesh(a)}
+function sphere(seg=24){let a=[];for(let y=0;y<seg;y++){let v0=y/seg*Math.PI,v1=(y+1)/seg*Math.PI;for(let x=0;x<seg;x++){let u0=x/seg*6.283,u1=(x+1)/seg*6.283;[[u0,v0],[u0,v1],[u1,v1],[u0,v0],[u1,v1],[u1,v0]].forEach(q=>{let X=Math.sin(q[1])*Math.cos(q[0]),Y=Math.cos(q[1]),Z=Math.sin(q[1])*Math.sin(q[0]);a.push(X,Y,Z,X,Y,Z);})}}return mesh(a)}
+function cylinder(cone=false,seg=32){let a=[];for(let i=0;i<seg;i++){let u=i/seg*6.283,v=(i+1)/seg*6.283,rt=cone?0:1;let p1=[Math.cos(u),-1,Math.sin(u)],p2=[Math.cos(v),-1,Math.sin(v)],p3=[rt*Math.cos(v),1,rt*Math.sin(v)],p4=[rt*Math.cos(u),1,rt*Math.sin(u)];tri(a,p1,p2,p3);tri(a,p1,p3,p4);}return mesh(a)}
+function torus(){let a=[],R=1,r=.28;for(let i=0;i<34;i++)for(let j=0;j<12;j++){let u=i/34*6.283,u2=(i+1)/34*6.283,v=j/12*6.283,v2=(j+1)/12*6.283;[[u,v],[u2,v],[u2,v2],[u,v],[u2,v2],[u,v2]].forEach(q=>{let x=(R+r*Math.cos(q[1]))*Math.cos(q[0]),y=r*Math.sin(q[1]),z=(R+r*Math.cos(q[1]))*Math.sin(q[0]),nx=Math.cos(q[1])*Math.cos(q[0]),ny=Math.sin(q[1]),nz=Math.cos(q[1])*Math.sin(q[0]);a.push(x,y,z,nx,ny,nz);})}return mesh(a)}
+function pyramid(){let a=[],v=[[0,1.25,0],[-1,-1,-1],[1,-1,-1],[1,-1,1],[-1,-1,1]];[[0,1,2],[0,2,3],[0,3,4],[0,4,1],[1,4,3],[1,3,2]].forEach(f=>tri(a,v[f[0]],v[f[1]],v[f[2]]));return mesh(a)}function plane(){let a=[];tri(a,[-1,0,-1],[1,0,-1],[1,0,1]);tri(a,[-1,0,-1],[1,0,1],[-1,0,1]);return mesh(a)}
+const meshes={cube:cube(),sphere:sphere(),cylinder:cylinder(false),cone:cylinder(true),torus:torus(),plane:plane(),pyramid:pyramid()};const order=['cube','sphere','cylinder','cone','torus','plane','pyramid'];
+function draw(name,model,color,shadeVal){const prj=P(.85,canvas.width/canvas.height,.1,100);let view=T(0,0,-9);if(labCamera==='top')view=MM(T(0,0,-10),RX(-1.25));else if(labCamera==='side')view=MM(T(0,0,-10),RY(1.25));else if(labCamera==='orbit')view=MM(T(0,0,-9),MM(RX(labCamPitch),RY(labCamYaw)));else view=MM(T(0,0,-9),MM(RX(labCamPitch),RY(labCamYaw)));const mvp=MM(prj,MM(view,model));const m=meshes[name];gl.bindBuffer(gl.ARRAY_BUFFER,m.b);gl.enableVertexAttribArray(loc.p);gl.vertexAttribPointer(loc.p,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(loc.n);gl.vertexAttribPointer(loc.n,3,gl.FLOAT,false,24,12);gl.uniformMatrix4fv(loc.model,false,new Float32Array(model));gl.uniformMatrix4fv(loc.mvp,false,new Float32Array(mvp));gl.uniform4fv(loc.color,new Float32Array(color));gl.uniform3f(loc.light,3,5,4);gl.uniform1f(loc.useLight,labLighting?1:0);gl.uniform1f(loc.useShadow,labShadow?1:0);gl.uniform1f(loc.shade,shadeVal);gl.drawArrays(gl.TRIANGLES,0,m.count);}
+function hexToRgba(hex){let n=parseInt(hex.slice(1),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255,1];}
+function renderLab(ms){resizeLab();let t=ms/1000*labSpeed;if(!labRunning)t=0;gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(labCamera==='orbit'&&labRunning)labCamYaw+=.006*labSpeed;let sh={phong:0,lambert:1,toon:2,normal:3,wire:4}[labShading]||0;let visible=labShape==='all'?order:[labShape];let gap=1.35,start=-gap*(visible.length-1)/2;let pos=[];visible.forEach((name,i)=>{let x=start+i*gap,y=0,z=0,s=labShape==='all'?.48:1.12;if(labMode==='translation')x+=Math.sin(t*1.6+i)*.55;if(labMode==='scaling')s*=1+.25*Math.sin(t*2+i);let model=MM(T(x,y,z),MM(RY(labRunning?t*.9+i:0),MM(RX(labRunning?t*.5+i*.2:0),S(s,s,s))));if(name==='plane')model=MM(T(x,y-.4,z),MM(RX(1.2),S(s,s,s)));let col=name===labShape||labShape==='all'?labColor:[.75,.75,.75,1];if(name==='plane')col=[labColor[0],labColor[1],labColor[2],.52];draw(name,model,col,sh);pos.push([x,y,z,name]);});let warn=false;if(labCollision&&pos.length>1){for(let i=0;i<pos.length;i++)for(let j=i+1;j<pos.length;j++)if(Math.hypot(pos[i][0]-pos[j][0],pos[i][1]-pos[j][1],pos[i][2]-pos[j][2])<.7)warn=true;}$('collisionAlert').classList.toggle('show',warn);$('labStatus').textContent=warn?'Collision detected while the animation continues.':'Animation, lighting, shading and camera movement are active.';requestAnimationFrame(renderLab)}requestAnimationFrame(renderLab);
+}
+document.querySelectorAll('[data-shape]').forEach(b=>b.onclick=()=>{labShape=b.dataset.shape;document.querySelectorAll('[data-shape]').forEach(x=>x.classList.toggle('active',x===b));});$('shapeColor').oninput=e=>labColor=hexToRgba(e.target.value);$('shadingSelect').onchange=e=>labShading=e.target.value;$('cameraSelect').onchange=e=>labCamera=e.target.value;$('speedSlider').oninput=e=>{labSpeed=parseFloat(e.target.value);};$('lightingBtn').onclick=()=>{labLighting=!labLighting;$('lightingBtn').textContent=labLighting?'Lighting ON':'Lighting OFF';};$('shadowBtn').onclick=()=>{labShadow=!labShadow;$('shadowBtn').textContent=labShadow?'Shadow ON':'Shadow OFF';};$('collisionBtn').onclick=()=>{labCollision=!labCollision;$('collisionBtn').textContent=labCollision?'Collision ON':'Collision OFF';};$('pauseLabBtn').onclick=()=>{labRunning=!labRunning;$('pauseLabBtn').textContent=labRunning?'Pause':'Play';$('labRunStatus').textContent=labRunning?'Running':'Paused';};$('rotateModeBtn').onclick=()=>{labMode='rotation';document.querySelectorAll('#rotateModeBtn,#scaleModeBtn,#translateModeBtn').forEach(x=>x.classList.remove('active'));$('rotateModeBtn').classList.add('active');};$('scaleModeBtn').onclick=()=>{labMode='scaling';document.querySelectorAll('#rotateModeBtn,#scaleModeBtn,#translateModeBtn').forEach(x=>x.classList.remove('active'));$('scaleModeBtn').classList.add('active');};$('translateModeBtn').onclick=()=>{labMode='translation';document.querySelectorAll('#rotateModeBtn,#scaleModeBtn,#translateModeBtn').forEach(x=>x.classList.remove('active'));$('translateModeBtn').classList.add('active');};
+</script>
+</body>
+</html>
